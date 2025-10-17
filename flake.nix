@@ -13,12 +13,7 @@
 
         haskellPackages = pkgs.haskellPackages;
 
-        signal-importer = haskellPackages.callCabal2nix "signal-importer" ./. {
-          # Ensure we use system PostgreSQL library
-          postgresql-libpq = haskellPackages.postgresql-libpq.override {
-            postgresql = pkgs.postgresql_14;
-          };
-        };
+        signal-importer = haskellPackages.callCabal2nix "signal-importer" ./. {};
 
       in {
         packages = {
@@ -38,6 +33,9 @@
 
             # SQLite
             sqlite
+
+            # Signal backup tools
+            signalbackup-tools
 
             # Development tools
             zlib
