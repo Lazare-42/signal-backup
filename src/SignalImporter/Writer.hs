@@ -31,6 +31,8 @@ import Database.PostgreSQL.Simple
   , executeMany
   , withTransaction
   )
+import Database.PostgreSQL.Simple.ToField (ToField(..), Action(..))
+import Database.PostgreSQL.Simple.Types (PGArray(..))
 import qualified Database.PostgreSQL.Simple as PG
 import SignalImporter.Types
 
@@ -77,8 +79,8 @@ writeToDatabase config conversations messages =
 insertContacts :: Connection -> [SignalConversation] -> IO Int
 insertContacts conn conversations = do
   let contacts = map conversationToContact conversations
-  result <- executeMany conn insertContactQuery contacts
-  pure $ fromIntegral result
+  results <- mapM (execute conn insertContactQuery) contacts
+  pure $ sum $ map fromIntegral results
   where
     insertContactQuery =
       "INSERT INTO contacts \
@@ -99,13 +101,13 @@ insertContacts conn conversations = do
 insertMessages :: Connection -> [SignalConversation] -> [SignalMessage] -> IO Int
 insertMessages conn conversations messages = do
   let unifiedMessages = catMaybes $ map (messageToUnified conversations) messages
-  result <- executeMany conn insertMessageQuery unifiedMessages
-  pure $ fromIntegral result
+  results <- mapM (execute conn insertMessageQuery) unifiedMessages
+  pure $ sum $ map fromIntegral results
   where
     insertMessageQuery =
       "INSERT INTO messages \
       \(message_id, platform, sender, recipients, content, metadata, timestamp, received_at) \
-      \VALUES (?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?) \
+      \VALUES (?, ?, CAST(? AS jsonb), CAST(? AS jsonb), CAST(? AS jsonb), CAST(? AS jsonb), ?, ?) \
       \ON CONFLICT (message_id) DO UPDATE SET \
       \  content = EXCLUDED.content, \
       \  metadata = EXCLUDED.metadata, \

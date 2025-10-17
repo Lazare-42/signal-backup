@@ -1,2 +1,43 @@
-Signal-Archive
-Signal
+# Signal data directories (sensitive)
+Signal-Archive/
+Signal/
+
+# Database files (sensitive - contains actual messages)
+desktop_messages.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Haskell build artifacts
+dist/
+dist-newstyle/
+.stack-work/
+*.hi
+*.o
+*.dyn_hi
+*.dyn_o
+.ghc.environment.*
+cabal.project.local
+cabal.project.local~
+
+# Beads issue tracker (local development)
+.beads/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Generated documentation
+.claude-summary.md
+
+# Logs
+*.log
+
+# Output files
+contacts.json
+convos.json
+myConversations.html
