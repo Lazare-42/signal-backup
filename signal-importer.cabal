@@ -1,0 +1,67 @@
+cabal-version:       2.4
+name:                signal-importer
+version:             0.1.0.0
+synopsis:            Import Signal Desktop messages into PostgreSQL
+description:         Reads Signal Desktop SQLite database and imports messages
+                     into a unified PostgreSQL schema for cross-platform
+                     message storage and search.
+homepage:            https://github.com/yourusername/signal-importer
+license:             MIT
+author:              Your Name
+maintainer:          your.email@example.com
+category:            Database
+build-type:          Simple
+extra-source-files:  README.md
+                   , CLAUDE.md
+                   , 001_initial_schema.sql
+                   , 002_add_indexes.sql
+                   , 003_add_full_text_search.sql
+
+common shared-properties
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+                       -Wcompat
+                       -Widentities
+                       -Wincomplete-record-updates
+                       -Wincomplete-uni-patterns
+                       -Wmissing-export-lists
+                       -Wmissing-home-modules
+                       -Wpartial-fields
+                       -Wredundant-constraints
+                       -threaded
+                       -rtsopts
+                       -with-rtsopts=-N
+
+library
+  import:              shared-properties
+  exposed-modules:     SignalImporter.Types
+                     , SignalImporter.Reader
+                     , SignalImporter.Writer
+  hs-source-dirs:      src
+  build-depends:       base >= 4.14 && < 5
+                     , aeson >= 2.0 && < 3
+                     , bytestring >= 0.10 && < 0.13
+                     , text >= 1.2 && < 3
+                     , time >= 1.9 && < 2
+                     , postgresql-simple >= 0.6 && < 0.8
+                     , sqlite-simple >= 0.4 && < 0.5
+                     , resource-pool >= 0.2 && < 0.5
+
+executable signal-importer
+  import:              shared-properties
+  main-is:             Main.hs
+  hs-source-dirs:      app
+  build-depends:       base >= 4.14 && < 5
+                     , signal-importer
+                     , text >= 1.2 && < 3
+                     , optparse-applicative >= 0.16 && < 0.19
+
+test-suite signal-importer-test
+  import:              shared-properties
+  type:                exitcode-stdio-1.0
+  main-is:             Spec.hs
+  hs-source-dirs:      test
+  build-depends:       base >= 4.14 && < 5
+                     , signal-importer
+                     , hspec >= 2.7 && < 3
+                     , QuickCheck >= 2.14 && < 3
