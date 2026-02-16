@@ -108,8 +108,12 @@ readSignalDatabase dbPath =
 -- | Read all conversations from database
 readConversations :: Connection -> IO [SignalConversation]
 readConversations conn = do
-  rows <- query_ conn conversationQuery :: IO [ConversationRow]
-  pure $ map rowToConversation rows
+  hasTable <- tableExists conn "conversations"
+  if not hasTable
+    then pure []
+    else do
+      rows <- query_ conn conversationQuery :: IO [ConversationRow]
+      pure $ map rowToConversation rows
   where
     conversationQuery =
       "SELECT id, name, profileName, type, members, json FROM conversations"
@@ -134,8 +138,12 @@ readConversations conn = do
 -- | Read all messages from database
 readMessages :: Connection -> IO [SignalMessage]
 readMessages conn = do
-  rows <- query_ conn messageQuery :: IO [MessageRow]
-  mapM enrichMessage rows
+  hasTable <- tableExists conn "messages"
+  if not hasTable
+    then pure []
+    else do
+      rows <- query_ conn messageQuery :: IO [MessageRow]
+      mapM enrichMessage rows
   where
     messageQuery =
       "SELECT id, conversationId, body, type, sent_at, received_at, \
@@ -165,8 +173,12 @@ readMessages conn = do
 -- | Read attachments for a specific message
 readAttachments :: Connection -> Text -> IO [SignalAttachment]
 readAttachments conn messageId = do
-  rows <- query conn attachmentQuery (Only messageId) :: IO [AttachmentRow]
-  pure $ map rowToAttachment rows
+  hasTable <- tableExists conn "message_attachments"
+  if not hasTable
+    then pure []
+    else do
+      rows <- query conn attachmentQuery (Only messageId) :: IO [AttachmentRow]
+      pure $ map rowToAttachment rows
   where
     attachmentQuery =
       "SELECT contentType, fileName, path, size, width, height, caption \
@@ -184,3 +196,10 @@ readAttachments conn messageId = do
         , attHeight = arHeight
         , attCaption = arCaption
         }
+
+-- | Check if a given table exists in the SQLite database
+tableExists :: Connection -> Text -> IO Bool
+tableExists conn tableName = do
+  let q = "SELECT name FROM sqlite_master WHERE type='table' AND name = ?"
+  names <- query conn q (Only tableName) :: IO [Only Text]
+  pure (not (null names))

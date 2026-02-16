@@ -1,15 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Main where
 
 import Control.Monad (when)
+import Control.Exception (try, SomeException)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Options.Applicative
 import System.Exit (exitFailure, exitSuccess)
 import System.IO (hPutStrLn, stderr)
+import System.Environment (lookupEnv)
+
+import Configuration.Dotenv (loadFile, defaultConfig)
 
 import SignalImporter.Reader
 import SignalImporter.Writer
@@ -27,29 +32,38 @@ data Options = Options
   , optDryRun     :: Bool
   } deriving (Show)
 
--- | Command-line parser
-optionsParser :: Parser Options
-optionsParser = Options
+data Defaults = Defaults
+  { defSignalDb :: FilePath
+  , defPgHost :: Text
+  , defPgPort :: Int
+  , defPgDatabase :: Text
+  , defPgUser :: Text
+  , defPgPassword :: Text
+  }
+
+-- | Command-line parser with environment defaults
+optionsParserWithDefaults :: Defaults -> Parser Options
+optionsParserWithDefaults Defaults{..} = Options
   <$> strOption
       ( long "signal-db"
      <> short 's'
      <> metavar "PATH"
      <> help "Path to Signal Desktop database (desktop_messages.db)"
-     <> value "desktop_messages.db"
+     <> value defSignalDb
      <> showDefault
       )
   <*> strOption
       ( long "pg-host"
      <> metavar "HOST"
      <> help "PostgreSQL host"
-     <> value "localhost"
+     <> value defPgHost
      <> showDefault
       )
   <*> option auto
       ( long "pg-port"
      <> metavar "PORT"
      <> help "PostgreSQL port"
-     <> value 5432
+     <> value defPgPort
      <> showDefault
       )
   <*> strOption
@@ -57,7 +71,7 @@ optionsParser = Options
      <> short 'd'
      <> metavar "DATABASE"
      <> help "PostgreSQL database name"
-     <> value "message_unifier"
+     <> value defPgDatabase
      <> showDefault
       )
   <*> strOption
@@ -65,7 +79,7 @@ optionsParser = Options
      <> short 'u'
      <> metavar "USER"
      <> help "PostgreSQL user"
-     <> value "postgres"
+     <> value defPgUser
      <> showDefault
       )
   <*> strOption
@@ -73,7 +87,7 @@ optionsParser = Options
      <> short 'p'
      <> metavar "PASSWORD"
      <> help "PostgreSQL password"
-     <> value ""
+     <> value defPgPassword
      <> showDefault
       )
   <*> switch
@@ -89,7 +103,13 @@ optionsParser = Options
 -- | Main program
 main :: IO ()
 main = do
-  opts <- execParser $ info (optionsParser <**> helper)
+  -- Load .env if present (ignore errors)
+  _ <- try (loadFile defaultConfig) :: IO (Either SomeException ())
+
+  -- Read environment defaults
+  envDefaults <- readDefaultsFromEnv
+
+  opts <- execParser $ info (optionsParserWithDefaults envDefaults <**> helper)
     ( fullDesc
    <> progDesc "Import Signal Desktop messages into PostgreSQL database"
    <> header "signal-importer - Import Signal messages"
@@ -99,7 +119,7 @@ main = do
 
 -- | Run the import process
 runImporter :: Options -> IO ()
-runImporter opts@Options{..} = do
+runImporter Options{..} = do
   when optVerbose $
     TIO.putStrLn $ "Reading Signal database from: " <> T.pack optSignalDb
 
@@ -157,3 +177,29 @@ printSummary conversations messages = do
     directConvs = filter (\c -> convType c == DirectMessage) conversations
     groupConvs = filter (\c -> convType c == GroupChat) conversations
     messagesWithAttachments = filter msgHasAttachments messages
+
+-- | Read defaults from environment variables (with hardcoded fallbacks)
+readDefaultsFromEnv :: IO Defaults
+readDefaultsFromEnv = do
+  mSignalDb <- lookupEnv "SIGNAL_DB"
+  mPgHost <- lookupEnv "PG_HOST"
+  mPgPort <- lookupEnv "PG_PORT"
+  mPgDatabase <- lookupEnv "PG_DATABASE"
+  mPgUser <- lookupEnv "PG_USER"
+  mPgPassword <- lookupEnv "PG_PASSWORD"
+
+  let defSignalDb = maybe "desktop_messages.db" id mSignalDb
+      defPgHost = T.pack $ maybe "localhost" id mPgHost
+      defPgPort = maybe 5432 read mPgPort
+      defPgDatabase = T.pack $ maybe "message_unifier" id mPgDatabase
+      defPgUser = T.pack $ maybe "postgres" id mPgUser
+      defPgPassword = T.pack $ maybe "" id mPgPassword
+
+  pure Defaults
+    { defSignalDb
+    , defPgHost
+    , defPgPort
+    , defPgDatabase
+    , defPgUser
+    , defPgPassword
+    }

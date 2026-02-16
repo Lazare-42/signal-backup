@@ -11,12 +11,9 @@ module SignalImporter.Writer
 
 import Control.Applicative ((<|>))
 import Control.Exception (bracket, catch, SomeException)
-import Data.Aeson (Value, encode, object, (.=), toJSON)
-import qualified Data.Aeson as Aeson
+import Data.Aeson (encode, object, (.=), toJSON)
 import qualified Data.ByteString.Lazy as BL
-import Data.Int (Int64)
-import Data.Maybe (fromMaybe, catMaybes)
-import Data.Pool (Pool, createPool, withResource)
+import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
@@ -24,16 +21,11 @@ import Data.Time (UTCTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Database.PostgreSQL.Simple
   ( Connection
-  , Query
   , connectPostgreSQL
   , close
   , execute
-  , executeMany
   , withTransaction
   )
-import Database.PostgreSQL.Simple.ToField (ToField(..), Action(..))
-import Database.PostgreSQL.Simple.Types (PGArray(..))
-import qualified Database.PostgreSQL.Simple as PG
 import SignalImporter.Types
 
 -- | PostgreSQL connection configuration
